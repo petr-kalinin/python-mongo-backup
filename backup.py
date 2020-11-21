@@ -19,7 +19,7 @@ BACKUP_PERIOD_SEC = 60 * 60 * 24
 BACKUP_FRACTION_SEC = 60 * 60 * 2.5
 STATS_PERIOD_SEC = 5 * 60
 
-g_mongo_process : typing.Optional[subprocess.Popen] = None
+g_mongo_process = None
 
 def mongodump_command(uri, file):
     return ['mongodump', '--gzip', '--archive=' + file, '--uri=' + uri]
