@@ -17,7 +17,7 @@ BACKUPS_DIR = './backups'
 MAX_BACKUPS = 7
 BACKUP_PERIOD_SEC = 60 * 60 * 24
 BACKUP_FRACTION_SEC = 60 * 60 * 2.5
-STATS_PERIOD_SEC = 5 * 60
+STATS_PERIOD_SEC = 3 * 60
 
 g_mongo_process = None
 
