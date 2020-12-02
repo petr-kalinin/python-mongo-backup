@@ -16,13 +16,13 @@ MONGO_DATA_DIR = './data'
 MONGO_COMMAND = ['mongod', '--dbpath', MONGO_DATA_DIR]
 BACKUPS_DIR = './backups'
 MAX_BACKUPS = 7
-#BACKUP_PERIOD_SEC = 60 * 60 * 24
-#BACKUP_FRACTION_SEC = 60 * 60 * 1.5
+BACKUP_PERIOD_SEC = 60 * 60 * 24
+BACKUP_FRACTION_SEC = 60 * 60 * 1.5
 STATS_PERIOD_SEC = 3 * 60
 
 # for test
-BACKUP_PERIOD_SEC = 60 * 10
-BACKUP_FRACTION_SEC = 60 * 1
+#BACKUP_PERIOD_SEC = 60 * 10
+#BACKUP_FRACTION_SEC = 60 * 1
 
 logging.basicConfig(format='%(asctime)s:%(filename)s:%(lineno)d: %(message)s', level=logging.DEBUG)
 
@@ -95,7 +95,7 @@ def cleanup_backups():
     files = list_backups()
     outdated_backups = files[MAX_BACKUPS:]
     for file in outdated_backups:
-        logging.info("Deleting outdated backup", file)
+        logging.info("Deleting outdated backup " + file)
         os.remove(file)
 
 def get_last_backup_time():
