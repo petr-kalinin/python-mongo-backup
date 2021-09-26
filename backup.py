@@ -76,7 +76,9 @@ def get_db_size():
         databases += 1
         for collectionname in client[dbname].list_collection_names():
             collections += 1
-            documents += client[dbname][collectionname].count_documents({})
+            this_documents = client[dbname][collectionname].count_documents({})
+            print("{}.{} documents = {}".format(dbname, collectionname, this_documents))
+            documents += this_documents
     return {
         "documents": documents,
         "collections": collections,
@@ -122,6 +124,7 @@ def get_stats():
     stats = get_db_size()
     backups = list_backups()
     age = time.time() - get_last_backup_time()
+    stats["size"] = os.path.getsize(backups[0])
     stats["age"] = age
     stats["backups_count"] = len(backups)
     return stats
