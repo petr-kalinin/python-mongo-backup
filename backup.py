@@ -36,7 +36,10 @@ def mongorestore_command(file):
 
 def run_backup(file):
     logging.info("Starting backup to " + file)
-    subprocess.check_call(mongodump_command(MONGODB_URI, file))
+    try:
+        subprocess.check_call(mongodump_command(MONGODB_URI, file))
+    except:
+        os.remove(file)
 
 def ensure_mongo_started():
     global g_mongo_process
