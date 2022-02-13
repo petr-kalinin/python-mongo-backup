@@ -34,15 +34,24 @@ def mongodump_command(uri, file):
 def mongorestore_command(file):
     return ['mongorestore', '--gzip', '--archive=' + file]
 
+def restart_port_forward():
+    try:
+        subprocess.check_call(["sudo", "systemctl", "restart", "kubectl-port-forward"])
+    except:
+        logging.exception("Can't restart port-forward")
+
 def run_backup(file):
     logging.info("Starting backup to " + file)
     try:
         subprocess.check_call(mongodump_command(MONGODB_URI, file))
     except:
-        os.remove(file)
+        if os.path.isfile(file):
+            os.remove(file)
+        restart_port_forward()
 
 def ensure_mongo_started():
     global g_mongo_process
+    os.makedirs(MONGO_DATA_DIR, exist_ok=True)
     if g_mongo_process is None or g_mongo_process.poll():
         logging.info("Starting mongo")
         g_mongo_process = subprocess.Popen(MONGO_COMMAND, stdout=subprocess.DEVNULL)
@@ -59,7 +68,6 @@ def stop_mongo():
 def restore_backup(file):
     stop_mongo()
     shutil.rmtree(MONGO_DATA_DIR, ignore_errors=True)
-    os.makedirs(MONGO_DATA_DIR)
     ensure_mongo_started()
     try:
         subprocess.check_call(mongorestore_command(file))
@@ -111,12 +119,12 @@ def get_last_backup_time():
 
 def get_next_backup_time():
     last_time = get_last_backup_time()
-    logging.info("Last time is {}".format(last_time))
+    logging.info("Last time is {}".format(datetime.datetime.fromtimestamp(last_time).isoformat()))
     return (last_time // BACKUP_PERIOD_SEC + 1) * BACKUP_PERIOD_SEC + BACKUP_FRACTION_SEC
 
 def maybe_run_backup():
     next_time = get_next_backup_time()
-    logging.info("Next backup at {}, now it's {}".format(next_time, time.time()))
+    logging.info("Next backup at {}, now it's {}".format(datetime.datetime.fromtimestamp(next_time).isoformat(), datetime.datetime.now().isoformat()))
     if time.time() > next_time:
         fname = BACKUPS_DIR + "/backup_" + datetime.datetime.now().isoformat()
         run_backup(fname)
