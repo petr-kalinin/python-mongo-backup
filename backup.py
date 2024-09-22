@@ -15,10 +15,12 @@ MONGODB_URI = os.environ['MONGODB_URI']
 MONGO_DATA_DIR = './data'
 MONGO_COMMAND = ['mongod', '--dbpath', MONGO_DATA_DIR]
 BACKUPS_DIR = './backups'
+MONGO_LOG = './mongo.log'
+MONGO_LOG_1 = './mongo.log.1'
 MAX_BACKUPS = 7
 BACKUP_PERIOD_SEC = 60 * 60 * 24
 BACKUP_FRACTION_SEC = 60 * 60 * 1.5
-STATS_PERIOD_SEC = 3 * 60
+STATS_PERIOD_SEC = 20 * 60
 
 # for test
 #BACKUP_PERIOD_SEC = 60 * 10
@@ -27,6 +29,7 @@ STATS_PERIOD_SEC = 3 * 60
 logging.basicConfig(format='%(asctime)s:%(filename)s:%(lineno)d: %(message)s', level=logging.DEBUG)
 
 g_mongo_process = None
+g_mongo_log = None
 
 def mongodump_command(uri, file):
     return ['mongodump', '--gzip', '--archive=' + file, '--uri=' + uri]
@@ -50,11 +53,16 @@ def run_backup(file):
         restart_port_forward()
 
 def ensure_mongo_started():
-    global g_mongo_process
+    global g_mongo_process, g_mongo_log
     os.makedirs(MONGO_DATA_DIR, exist_ok=True)
+    if g_mongo_log:
+        g_mongo_log.close()
+    if os.path.isfile(MONGO_LOG):
+        shutil.copyfile(MONGO_LOG, MONGO_LOG_1)
+    g_mongo_log = open(MONGO_LOG, "w")
     if g_mongo_process is None or g_mongo_process.poll():
         logging.info("Starting mongo")
-        g_mongo_process = subprocess.Popen(MONGO_COMMAND, stdout=subprocess.DEVNULL)
+        g_mongo_process = subprocess.Popen(MONGO_COMMAND, stdout=g_mongo_log, stderr=subprocess.STDOUT)
         time.sleep(5)
     if g_mongo_process is None or g_mongo_process.poll():
         raise Exception("Could not start mongo")
@@ -64,18 +72,26 @@ def stop_mongo():
         logging.info("Stopping mongo")
         g_mongo_process.kill()
         time.sleep(5)
+    else:
+        logging.info("Will not stop mongo: it is not running")
+
 
 def restore_backup(file):
-    stop_mongo()
-    shutil.rmtree(MONGO_DATA_DIR, ignore_errors=True)
-    ensure_mongo_started()
-    try:
-        subprocess.check_call(mongorestore_command(file))
-    except:
+    for i in range(10):
+        logging.info("Try restore backup, attempt " + str(i))
         stop_mongo()
         shutil.rmtree(MONGO_DATA_DIR, ignore_errors=True)
-        raise
-        
+        ensure_mongo_started()
+        try:
+            subprocess.check_call(mongorestore_command(file))
+            break
+        except:
+            stop_mongo()
+            shutil.rmtree(MONGO_DATA_DIR, ignore_errors=True)
+    else:
+        logging.info("Could not restore backup from 10 attempts, removing backup file")
+        if os.path.isfile(file):
+            os.remove(file)
 
 def get_db_size():
     ensure_mongo_started()
@@ -130,6 +146,14 @@ def maybe_run_backup():
         run_backup(fname)
         restore_backup(fname)
         cleanup_backups()
+        return True
+    return False
+
+def restore_last_backup():
+    files = list_backups()
+    if not files:
+        return
+    restore_backup(files[0])
 
 def get_stats():
     stats = get_db_size()
@@ -147,6 +171,7 @@ def send_stats(stats):
 
 atexit.register(stop_mongo)
 graphyte.init('ije.algoprog.ru', prefix='algoprog.0.backup')
+restore_last_backup()
 while True:
     maybe_run_backup()
     send_stats(get_stats())
